@@ -6,6 +6,8 @@ import os
 import json
 import uuid
 import requests
+from dotenv import load_dotenv
+load_dotenv()
 
 # Папка для хранения историй
 DATA_DIR = "data"
@@ -21,7 +23,9 @@ if not os.path.exists(USERS_FILE):
 TOKENS = {}
 
 # OpenAI
-GPT_TEAM_TOKEN = "your_gpt_team_token_here"
+GPT_TEAM_TOKEN = os.getenv("GPT_TEAM_TOKEN")
+if not GPT_TEAM_TOKEN:
+    raise ValueError("Не найден GPT_TEAM_TOKEN в переменных окружения")
 GPT_API_URL = "https://api.openai.com/v1/chat/completions"
 
 # Ограничения
