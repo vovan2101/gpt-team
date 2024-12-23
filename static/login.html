@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>Login</title>
+</head>
+<body>
+  <h1>Вход</h1>
+  <form id="loginForm">
+    <label>Логин:</label>
+    <input type="text" id="username" name="username"/>
+    <br/>
+    <label>Пароль:</label>
+    <input type="password" id="password" name="password"/>
+    <br/>
+    <button type="submit">Войти</button>
+  </form>
+
+  <p id="status"></p>
+
+  <script>
+    const form = document.getElementById("loginForm");
+    const statusEl = document.getElementById("status");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const response = await fetch("/login", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({username, password})
+        });
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || "Login failed");
+        }
+
+        const data = await response.json();
+        // Сохраним токен в localStorage
+        localStorage.setItem("token", data.token);
+
+        statusEl.textContent = "Успешный вход!";
+        // Переходим на страницу чата
+        window.location.href = "/chat_page";
+      } catch (err) {
+        statusEl.textContent = "Ошибка: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>ChatGPT</title>
+  <style>
+    /* --- Стили, копируем из предыдущего примера (сокращённо) --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex; min-height: 100vh; background-color: #343541; color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .sidebar {
+      width: 260px; background-color: #202123; display: flex; flex-direction: column; padding: 10px;
+    }
+    .logo {
+      font-size: 1.2rem; text-align: center; margin-bottom: 10px; font-weight: bold;
+    }
+    .sidebar button {
+      width: 100%; background: transparent; border: 1px solid #565869; color: #fff;
+      padding: 8px; border-radius: 5px; cursor: pointer; margin-bottom: 10px; text-align: left;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .sidebar button:hover { background: #2b2d31; }
+    .chat-list { flex: 1; overflow-y: auto; margin-top: 10px; }
+    .chat-item {
+      margin-bottom: 5px; background: #2b2d31; padding: 8px; border-radius: 5px; cursor: pointer;
+    }
+    .chat-item:hover { background: #3b3d41; }
+    .chat-container { flex: 1; display: flex; flex-direction: column; }
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 20px; background-color: #444654; 
+    }
+    .message { margin-bottom: 15px; line-height: 1.4; }
+    .assistant { background-color: #F7F7F8; color: #111; padding: 10px; border-radius: 5px; }
+    .user { background-color: #0b7285; color: #fff; padding: 10px; border-radius: 5px;
+            max-width: 80%; margin-left: auto; }
+    #loadMoreBtn { display: block; margin: 10px auto; background: transparent; color: #fff;
+                   border: 1px solid #565869; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+    #loadMoreBtn:hover { background: #2b2d31; }
+    .chat-input {
+      background-color: #343541; padding: 10px; border-top: 1px solid #565869; position: sticky; bottom: 0;
+    }
+    .input-row { display: flex; gap: 10px; }
+    #userMessage {
+      flex: 1; background-color: #3e3f4b; border: none; padding: 10px; border-radius: 5px; color: #fff; 
+      resize: none; outline: none;
+    }
+    #sendBtn { background-color: #19c37d; border: none; border-radius: 5px; color: #fff; padding: 0 16px; cursor: pointer; }
+    #sendBtn:hover { background-color: #00a46c; }
+    #info { margin-top: 10px; color: #f08; }
+  </style>
+</head>
+<body>
+  <!-- САЙДБАР -->
+  <div class="sidebar">
+    <div class="logo">MyGPT</div>
+    <button id="newChatBtn">
+      <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24"
+           stroke-linecap="round" stroke-linejoin="round" height="1em" width="1em"
+           xmlns="http://www.w3.org/2000/svg">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      New chat
+    </button>
+    <div class="chat-list" id="chatList">
+      <!-- Список чатов будет подгружаться скриптом -->
+    </div>
+  </div>
+
+  <!-- ОСНОВНАЯ ОБЛАСТЬ -->
+  <div class="chat-container">
+    <div class="chat-messages" id="chatMessages">
+      <!-- Кнопка «Показать ещё» для старых сообщений -->
+      <button id="loadMoreBtn" style="display:none;">Показать ещё</button>
+    </div>
+    <div class="chat-input">
+      <div class="input-row">
+        <textarea id="userMessage" rows="1" placeholder="Отправьте сообщение..."></textarea>
+        <button id="sendBtn">Send</button>
+      </div>
+      <p id="info"></p>
+    </div>
+  </div>
+
+  <script>
+    // ============ ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ============
+    let token = localStorage.getItem("token");
+    if (!token) {
+      window.location.href = "/"; // если нет токена, отправляем на логин
+    }
+
+    const chatListEl = document.getElementById("chatList");
+    const chatMessagesEl = document.getElementById("chatMessages");
+    const loadMoreBtn = document.getElementById("loadMoreBtn");
+    const userMessageInput = document.getElementById("userMessage");
+    const sendBtn = document.getElementById("sendBtn");
+    const infoEl = document.getElementById("info");
+    const newChatBtn = document.getElementById("newChatBtn");
+
+    // Текущий чат
+    let currentChatId = null;
+    let offset = 0; // для пагинации (сколько сообщений мы уже загрузили с конца)
+    const limit = 10;
+    let totalMessages = 0;
+
+    // ============ ФУНКЦИИ ============
+
+    // 1) Загрузить список чатов
+    async function loadChats() {
+      try {
+        const resp = await fetch("/my_chats", {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || "Ошибка при загрузке чатов");
+        }
+        const data = await resp.json();
+        const chats = data.chats || [];
+
+        // Очищаем список и заполняем
+        chatListEl.innerHTML = "";
+        chats.forEach(chat => {
+          const div = document.createElement("div");
+          div.classList.add("chat-item");
+          div.textContent = chat.title;
+          div.onclick = () => {
+            // При клике выбираем этот чат
+            openChat(chat.id);
+          };
+          chatListEl.appendChild(div);
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // 2) Создать новый чат
+    async function createNewChat() {
+      const title = prompt("Введите название чата:", "New chat");
+      if (title === null) return; // пользователь нажал Cancel
+
+      try {
+        const resp = await fetch("/chat/new", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ title })
+        });
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Ошибка при создании чата");
+        }
+        // Получаем chat_id и title, затем перезагружаем список чатов
+        await loadChats();
+      } catch (err) {
+        alert("Ошибка: " + err.message);
+      }
+    }
+
+    // 3) Открыть чат (загрузить последние 10 сообщений)
+    async function openChat(chatId) {
+      currentChatId = chatId;
+      offset = 0;
+      chatMessagesEl.innerHTML = `<button id="loadMoreBtn">Показать ещё</button>`;
+      // После перезаписи DOM кнопка потеряется, нужно заново найти
+      const newLoadMoreBtn = document.getElementById("loadMoreBtn");
+      newLoadMoreBtn.addEventListener("click", loadMoreMessages);
+
+      await loadMoreMessages(); // подгрузим последние сообщения
+    }
+
+    // 4) Загрузить сообщения (последние limit, смещаясь на offset)
+    async function loadMoreMessages() {
+      if (!currentChatId) {
+        return;
+      }
+      try {
+        const resp = await fetch(`/chat_history?chat_id=${currentChatId}&limit=${limit}&offset=${offset}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Ошибка при загрузке истории");
+        }
+        const data = await resp.json();
+        totalMessages = data.total_messages;
+        const messages = data.messages;
+
+        // Сформировать HTML для этих сообщений и вставить «в начало»
+        let messagesHtml = "";
+        messages.forEach(m => {
+          if (m.role === "assistant") {
+            messagesHtml += `<div class="message assistant">${m.message}</div>`;
+          } else {
+            messagesHtml += `<div class="message user">${m.message}</div>`;
+          }
+        });
+        // Запоминаем старую высоту
+        const oldScrollHeight = chatMessagesEl.scrollHeight;
+        // Вставляем перед существующим содержимым
+        chatMessagesEl.insertAdjacentHTML("afterbegin", messagesHtml);
+        // Сдвигаем прокрутку
+        const newScrollHeight = chatMessagesEl.scrollHeight;
+        chatMessagesEl.scrollTop = newScrollHeight - oldScrollHeight;
+
+        offset += messages.length;
+        const loadMoreBtnEl = document.getElementById("loadMoreBtn");
+        if (offset >= totalMessages) {
+          loadMoreBtnEl.style.display = "none";
+        } else {
+          loadMoreBtnEl.style.display = "block";
+        }
+      } catch (err) {
+        infoEl.textContent = "Ошибка: " + err.message;
+      }
+    }
+
+    // 5) Отправить сообщение
+    async function sendMessage() {
+      if (!currentChatId) {
+        alert("Сначала выберите чат слева или создайте новый!");
+        return;
+      }
+      const userText = userMessageInput.value.trim();
+      if (!userText) return;
+
+      userMessageInput.value = "";
+      infoEl.textContent = "Отправляем...";
+
+      try {
+        const resp = await fetch(`/chat_send?chat_id=${currentChatId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ role: "user", message: userText })
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Ошибка при отправке");
+        }
+        const data = await resp.json();
+        const assistantText = data.reply;
+
+        // Добавим в конец два «пузыря»: user и assistant
+        chatMessagesEl.insertAdjacentHTML("beforeend", `
+          <div class="message user">${userText}</div>
+          <div class="message assistant">${assistantText}</div>
+        `);
+
+        // Прокрутка вниз
+        chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+
+        // Увеличить totalMessages на 2
+        totalMessages += 2;
+        infoEl.textContent = "";
+      } catch (err) {
+        infoEl.textContent = "Ошибка: " + err.message;
+      }
+    }
+
+    // ============ ОБРАБОТЧИКИ ============
+    window.addEventListener("load", () => {
+      loadChats(); // при заходе грузим список чатов
+    });
+
+    newChatBtn.addEventListener("click", () => {
+      createNewChat();
+    });
+    sendBtn.addEventListener("click", () => {
+      sendMessage();
+    });
+    userMessageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>
