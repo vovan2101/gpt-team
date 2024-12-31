@@ -1,58 +1,230 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>ChatGPT</title>
+  <meta charset="UTF-8">
+  <title>MyGPT</title>
   <style>
-    /* --- Стили, копируем из предыдущего примера (сокращённо) --- */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      display: flex; min-height: 100vh; background-color: #343541; color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    /* ===============================
+       Общие стили страницы и шрифты
+       =============================== */
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap");
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
+    body {
+      display: flex;
+      min-height: 100vh;
+      background-color: #343541; /* Тёмно-серый фон */
+      color: #ececec;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 
+                   "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      line-height: 1.6;
+    }
+
+    /* ======================
+       Сайдбар (левая панель)
+       ====================== */
     .sidebar {
-      width: 260px; background-color: #202123; display: flex; flex-direction: column; padding: 10px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      width: 260px;
+      background-color: #202123;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+      border-right: 1px solid #565869;
+      overflow-y: auto;
     }
     .logo {
-      font-size: 1.2rem; text-align: center; margin-bottom: 10px; font-weight: bold;
+      font-size: 1.2rem;
+      text-align: center;
+      margin-bottom: 10px;
+      font-weight: 600;
+      color: #fff;
     }
     .sidebar button {
-      width: 100%; background: transparent; border: 1px solid #565869; color: #fff;
-      padding: 8px; border-radius: 5px; cursor: pointer; margin-bottom: 10px; text-align: left;
-      display: flex; align-items: center; gap: 6px;
+      width: 100%;
+      background: transparent;
+      border: 1px solid #565869;
+      color: #fff;
+      padding: 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-bottom: 10px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.95rem;
     }
-    .sidebar button:hover { background: #2b2d31; }
-    .chat-list { flex: 1; overflow-y: auto; margin-top: 10px; }
+    .sidebar button:hover {
+      background: #2b2d31;
+    }
+
+    /* Список чатов */
+    .chat-list {
+      flex: 1;
+      margin-top: 10px;
+    }
     .chat-item {
-      margin-bottom: 5px; background: #2b2d31; padding: 8px; border-radius: 5px; cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #2b2d31;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #fff;
+      font-size: 0.95rem;
+      transition: background 0.2s ease;
+      position: relative; /* Для выпадающего меню */
+      margin-bottom: 6px;
     }
-    .chat-item:hover { background: #3b3d41; }
-    .chat-container { flex: 1; display: flex; flex-direction: column; }
+    .chat-item:hover {
+      background: #3b3d41;
+    }
+    .chat-details {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      max-width: 80%;
+    }
+    .chat-details svg {
+      flex-shrink: 0;
+    }
+    .chat-details span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chat-actions {
+      position: relative;
+    }
+    .dots {
+      font-size: 1.2rem;
+      color: #8e8e8e;
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+    .dots:hover {
+      color: #fff;
+    }
+
+    /* Меню, которое появляется при клике на троеточие */
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 24px;
+      background-color: #2b2d31;
+      border: 1px solid #565869;
+      border-radius: 5px;
+      overflow: hidden;
+      z-index: 100;
+    }
+    .dropdown-menu button {
+      display: block;
+      width: 100%;
+      background: transparent;
+      border: none;
+      padding: 8px 16px;
+      color: #fff;
+      text-align: left;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .dropdown-menu button:hover {
+      background-color: #3b3d41;
+    }
+
+    /* ==========================
+       Основная часть (сообщения)
+       ========================== */
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
     .chat-messages {
-      flex: 1; overflow-y: auto; padding: 20px; background-color: #444654; 
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background-color: #343541; /* Фон как у ChatGPT */
+      display: flex;
+      flex-direction: column;
     }
-    .message { margin-bottom: 15px; line-height: 1.4; }
-    .assistant { background-color: #F7F7F8; color: #111; padding: 10px; border-radius: 5px; }
-    .user { background-color: #0b7285; color: #fff; padding: 10px; border-radius: 5px;
-            max-width: 80%; margin-left: auto; }
-    #loadMoreBtn { display: block; margin: 10px auto; background: transparent; color: #fff;
-                   border: 1px solid #565869; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
-    #loadMoreBtn:hover { background: #2b2d31; }
+
+    /* --------------------------
+       Поддержка markdown-стилей
+       -------------------------- */
+    .message {
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto 16px auto;
+      border-radius: 8px;
+      padding: 16px;
+      white-space: pre-wrap;
+    }
+    .assistant {
+      background-color: #444654;
+      color: #ececec;
+    }
+    .user {
+      background-color: #2b2d31;
+      color: #fff;
+    }
+
+    /* ========================
+       Поле ввода + кнопка Send
+       ======================== */
     .chat-input {
-      background-color: #343541; padding: 10px; border-top: 1px solid #565869; position: sticky; bottom: 0;
+      background-color: #343541;
+      padding: 10px;
+      border-top: 1px solid #565869;
+      position: sticky;
+      bottom: 0;
     }
-    .input-row { display: flex; gap: 10px; }
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
     #userMessage {
-      flex: 1; background-color: #3e3f4b; border: none; padding: 10px; border-radius: 5px; color: #fff; 
-      resize: none; outline: none;
+      flex: 1;
+      background-color: #3e3f4b;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      color: #fff;
+      resize: none;
+      outline: none;
+      font-size: 1rem;
+      line-height: 1.4;
     }
-    #sendBtn { background-color: #19c37d; border: none; border-radius: 5px; color: #fff; padding: 0 16px; cursor: pointer; }
-    #sendBtn:hover { background-color: #00a46c; }
-    #info { margin-top: 10px; color: #f08; }
+    #sendBtn {
+      background-color: #19c37d;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      padding: 0 16px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    #sendBtn:hover {
+      background-color: #00a46c;
+    }
+    #info {
+      margin-top: 10px;
+      color: #f08;
+    }
   </style>
 </head>
 <body>
-  <!-- САЙДБАР -->
+  <!-- Сайдбар -->
   <div class="sidebar">
     <div class="logo">MyGPT</div>
     <button id="newChatBtn">
@@ -65,15 +237,14 @@
       New chat
     </button>
     <div class="chat-list" id="chatList">
-      <!-- Список чатов будет подгружаться скриптом -->
+      <!-- Список чатов -->
     </div>
   </div>
 
-  <!-- ОСНОВНАЯ ОБЛАСТЬ -->
+  <!-- Основная область -->
   <div class="chat-container">
     <div class="chat-messages" id="chatMessages">
-      <!-- Кнопка «Показать ещё» для старых сообщений -->
-      <button id="loadMoreBtn" style="display:none;">Показать ещё</button>
+      <!-- Сообщения -->
     </div>
     <div class="chat-input">
       <div class="input-row">
@@ -83,17 +254,15 @@
       <p id="info"></p>
     </div>
   </div>
-
   <script>
     // ============ ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ============
     let token = localStorage.getItem("token");
     if (!token) {
-      window.location.href = "/"; // если нет токена, отправляем на логин
+      window.location.href = "/";
     }
 
     const chatListEl = document.getElementById("chatList");
     const chatMessagesEl = document.getElementById("chatMessages");
-    const loadMoreBtn = document.getElementById("loadMoreBtn");
     const userMessageInput = document.getElementById("userMessage");
     const sendBtn = document.getElementById("sendBtn");
     const infoEl = document.getElementById("info");
@@ -101,7 +270,7 @@
 
     // Текущий чат
     let currentChatId = null;
-    let offset = 0; // для пагинации (сколько сообщений мы уже загрузили с конца)
+    let offset = 0;
     const limit = 10;
     let totalMessages = 0;
 
@@ -112,7 +281,9 @@
       try {
         const resp = await fetch("/my_chats", {
           method: "GET",
-          headers: { "Authorization": `Bearer ${token}` }
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
         });
         if (!resp.ok) {
           const err = await resp.json();
@@ -121,27 +292,113 @@
         const data = await resp.json();
         const chats = data.chats || [];
 
-        // Очищаем список и заполняем
         chatListEl.innerHTML = "";
         chats.forEach(chat => {
-          const div = document.createElement("div");
-          div.classList.add("chat-item");
-          div.textContent = chat.title;
-          div.onclick = () => {
-            // При клике выбираем этот чат
+          const chatDiv = document.createElement("div");
+          chatDiv.classList.add("chat-item");
+
+          // Левая часть: иконка + название
+          const detailsDiv = document.createElement("div");
+          detailsDiv.classList.add("chat-details");
+          detailsDiv.innerHTML = `
+            <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24"
+                 stroke-linecap="round" stroke-linejoin="round" height="1em" width="1em"
+                 xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>${chat.title}</span>
+          `;
+          chatDiv.appendChild(detailsDiv);
+
+          // Правая часть: троеточие и выпадающее меню
+          const actionsDiv = document.createElement("div");
+          actionsDiv.classList.add("chat-actions");
+
+          const dots = document.createElement("div");
+          dots.classList.add("dots");
+          dots.textContent = '⋮';
+
+          const dropdownMenu = document.createElement("div");
+          dropdownMenu.classList.add("dropdown-menu");
+
+          // Кнопка переименовать
+          const renameBtn = document.createElement("button");
+          renameBtn.textContent = "Переименовать чат";
+          renameBtn.addEventListener("click", (e) => {
+            e.stopPropagation(); // чтобы не открывался чат
+            renameChat(chat.id, chat.title);
+          });
+
+          // Кнопка удалить
+          const deleteBtn = document.createElement("button");
+          deleteBtn.textContent = "Удалить чат";
+          deleteBtn.addEventListener("click", (e) => {
+            e.stopPropagation(); // чтобы не открывался чат
+            if (confirm(`Удалить чат «${chat.title}»?`)) {
+              deleteChat(chat.id);
+            }
+          });
+
+          // Логика выпадающего меню
+          dots.addEventListener("click", (e) => {
+            e.stopPropagation(); // чтобы не открывался чат
+            // Закрываем все прочие меню
+            document.querySelectorAll(".dropdown-menu").forEach(menu => {
+              if (menu !== dropdownMenu) menu.style.display = "none";
+            });
+            // Показать/скрыть текущее меню
+            dropdownMenu.style.display =
+              dropdownMenu.style.display === "block" ? "none" : "block";
+          });
+
+          dropdownMenu.appendChild(renameBtn);
+          dropdownMenu.appendChild(deleteBtn);
+
+          actionsDiv.appendChild(dots);
+          actionsDiv.appendChild(dropdownMenu);
+          chatDiv.appendChild(actionsDiv);
+
+          // При клике на сам элемент (иконка/название) — открываем этот чат
+          chatDiv.addEventListener("click", () => {
             openChat(chat.id);
-          };
-          chatListEl.appendChild(div);
+          });
+
+          chatListEl.appendChild(chatDiv);
         });
       } catch (err) {
         console.error(err);
       }
     }
 
-    // 2) Создать новый чат
+    // 2) Удалить чат
+    async function deleteChat(chatId) {
+      try {
+        const resp = await fetch(`/chat/${chatId}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Ошибка при удалении чата");
+        }
+
+        if (chatId === currentChatId) {
+          currentChatId = null;
+          chatMessagesEl.innerHTML = "";
+          offset = 0;
+          totalMessages = 0;
+        }
+
+        await loadChats();
+      } catch (err) {
+        alert("Ошибка: " + err.message);
+      }
+    }
+
+    // 3) Создать новый чат
     async function createNewChat() {
       const title = prompt("Введите название чата:", "New chat");
-      if (title === null) return; // пользователь нажал Cancel
+      if (title === null) return;
 
       try {
         const resp = await fetch("/chat/new", {
@@ -156,36 +413,62 @@
           const errData = await resp.json();
           throw new Error(errData.detail || "Ошибка при создании чата");
         }
-        // Получаем chat_id и title, затем перезагружаем список чатов
         await loadChats();
       } catch (err) {
         alert("Ошибка: " + err.message);
       }
     }
 
-    // 3) Открыть чат (загрузить последние 10 сообщений)
+    // 3.1) Переименовать чат
+    async function renameChat(chatId, oldTitle) {
+      const newTitle = prompt("Введите новое название чата:", oldTitle);
+      if (newTitle === null || !newTitle.trim()) return;
+
+      try {
+        // Допустим, на бэкенде есть endpoint PUT/PATCH /chat/{chatId} для переименования
+        const resp = await fetch(`/chat/${chatId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ title: newTitle.trim() })
+        });
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Ошибка при переименовании чата");
+        }
+        await loadChats();
+
+        // Если мы переименовали текущий открытый чат — возможно, стоит обновить заголовок
+        // Но в данном коде заголовок нигде отдельно не выводится, поэтому пока ничего не делаем
+      } catch (err) {
+        alert("Ошибка: " + err.message);
+      }
+    }
+
+    // 4) Открыть чат
     async function openChat(chatId) {
       currentChatId = chatId;
       offset = 0;
-      chatMessagesEl.innerHTML = `<button id="loadMoreBtn">Показать ещё</button>`;
-      // После перезаписи DOM кнопка потеряется, нужно заново найти
+      totalMessages = 0;
+      chatMessagesEl.innerHTML = `
+        <button id="loadMoreBtn" style="display:none;">Показать ещё</button>
+      `;
+
       const newLoadMoreBtn = document.getElementById("loadMoreBtn");
       newLoadMoreBtn.addEventListener("click", loadMoreMessages);
 
-      await loadMoreMessages(); // подгрузим последние сообщения
+      await loadMoreMessages();
     }
 
-    // 4) Загрузить сообщения (последние limit, смещаясь на offset)
+    // 5) Загрузить пачку сообщений (старые сверху)
     async function loadMoreMessages() {
-      if (!currentChatId) {
-        return;
-      }
+      if (!currentChatId) return;
       try {
         const resp = await fetch(`/chat_history?chat_id=${currentChatId}&limit=${limit}&offset=${offset}`, {
           method: "GET",
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
+          headers: { "Authorization": `Bearer ${token}` }
         });
         if (!resp.ok) {
           const errData = await resp.json();
@@ -193,46 +476,47 @@
         }
         const data = await resp.json();
         totalMessages = data.total_messages;
-        const messages = data.messages;
+        const messages = data.messages || [];
 
-        // Сформировать HTML для этих сообщений и вставить «в начало»
-        let messagesHtml = "";
+        let html = "";
         messages.forEach(m => {
           if (m.role === "assistant") {
-            messagesHtml += `<div class="message assistant">${m.message}</div>`;
+            html += `<div class="message assistant">${m.message}</div>`;
           } else {
-            messagesHtml += `<div class="message user">${m.message}</div>`;
+            html += `<div class="message user">${m.message}</div>`;
           }
         });
-        // Запоминаем старую высоту
-        const oldScrollHeight = chatMessagesEl.scrollHeight;
-        // Вставляем перед существующим содержимым
-        chatMessagesEl.insertAdjacentHTML("afterbegin", messagesHtml);
-        // Сдвигаем прокрутку
-        const newScrollHeight = chatMessagesEl.scrollHeight;
-        chatMessagesEl.scrollTop = newScrollHeight - oldScrollHeight;
+
+        // Сохраняем высоту до вставки
+        const oldHeight = chatMessagesEl.scrollHeight;
+        const loadMoreBtn = document.getElementById("loadMoreBtn");
+
+        // Вставляем новые сообщения «под кнопкой»
+        loadMoreBtn.insertAdjacentHTML("afterend", html);
+
+        // Корректируем скролл, чтобы не прыгало
+        const newHeight = chatMessagesEl.scrollHeight;
+        chatMessagesEl.scrollTop = newHeight - oldHeight;
 
         offset += messages.length;
-        const loadMoreBtnEl = document.getElementById("loadMoreBtn");
         if (offset >= totalMessages) {
-          loadMoreBtnEl.style.display = "none";
+          loadMoreBtn.style.display = "none";
         } else {
-          loadMoreBtnEl.style.display = "block";
+          loadMoreBtn.style.display = "block";
         }
       } catch (err) {
         infoEl.textContent = "Ошибка: " + err.message;
       }
     }
 
-    // 5) Отправить сообщение
+    // 6) Отправка сообщения
     async function sendMessage() {
       if (!currentChatId) {
-        alert("Сначала выберите чат слева или создайте новый!");
+        alert("Сначала выберите чат или создайте новый!");
         return;
       }
-      const userText = userMessageInput.value.trim();
-      if (!userText) return;
-
+      const text = userMessageInput.value.trim();
+      if (!text) return;
       userMessageInput.value = "";
       infoEl.textContent = "Отправляем...";
 
@@ -243,9 +527,8 @@
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`
           },
-          body: JSON.stringify({ role: "user", message: userText })
+          body: JSON.stringify({ role: "user", message: text })
         });
-
         if (!resp.ok) {
           const errData = await resp.json();
           throw new Error(errData.detail || "Ошибка при отправке");
@@ -253,17 +536,14 @@
         const data = await resp.json();
         const assistantText = data.reply;
 
-        // Добавим в конец два «пузыря»: user и assistant
+        // Добавляем сообщения в конец
         chatMessagesEl.insertAdjacentHTML("beforeend", `
-          <div class="message user">${userText}</div>
+          <div class="message user">${text}</div>
           <div class="message assistant">${assistantText}</div>
         `);
-
-        // Прокрутка вниз
         chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-
-        // Увеличить totalMessages на 2
         totalMessages += 2;
+
         infoEl.textContent = "";
       } catch (err) {
         infoEl.textContent = "Ошибка: " + err.message;
@@ -272,20 +552,24 @@
 
     // ============ ОБРАБОТЧИКИ ============
     window.addEventListener("load", () => {
-      loadChats(); // при заходе грузим список чатов
+      loadChats();
     });
-
-    newChatBtn.addEventListener("click", () => {
-      createNewChat();
-    });
-    sendBtn.addEventListener("click", () => {
-      sendMessage();
-    });
+    newChatBtn.addEventListener("click", createNewChat);
+    sendBtn.addEventListener("click", sendMessage);
     userMessageInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         sendMessage();
       }
+    });
+
+    // Закрываем раскрытые меню при клике в любое место вне меню
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll(".dropdown-menu").forEach(menu => {
+        if (!menu.contains(e.target)) {
+          menu.style.display = "none";
+        }
+      });
     });
   </script>
 </body>

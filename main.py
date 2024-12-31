@@ -29,8 +29,8 @@ if not GPT_TEAM_TOKEN:
 GPT_API_URL = "https://api.openai.com/v1/chat/completions"
 
 # Ограничения
-MAX_USER_INPUT_LENGTH = 2048
-MAX_GPT_TOKENS = 300
+MAX_USER_INPUT_LENGTH = 4096
+MAX_GPT_TOKENS = 4096
 
 # Инициализация приложения
 app = FastAPI()
@@ -237,7 +237,7 @@ def chat_send(request: Request, chat_id: str, msg: Message):
             "Content-Type": "application/json"
         },
         json={
-            "model": "gpt-3.5-turbo",  # или "gpt-4", если у вас есть доступ
+            "model": "gpt-4",  # или "gpt-3.5-turbo", если нет доступа к gpt-4
             "messages": [
                 {"role": m["role"], "content": m["message"]} for m in context
             ],
@@ -298,3 +298,44 @@ def delete_chat(request: Request, chat_id: str):
 
     return {"detail": "Чат успешно удалён"}
 
+# ------------------- НОВЫЙ РОУТ ДЛЯ ПЕРЕИМЕНОВАНИЯ -------------------
+@app.put("/chat/{chat_id}")
+def rename_chat(request: Request, chat_id: str, data: NewChatInput):
+    """
+    Переименовать указанный чат (title).
+    - Проверяем, что чат принадлежит этому пользователю
+    - Обновляем поле title в users.json
+    - (При желании можно добавить обновление в самом файле истории, если там храните title)
+    """
+    username = get_current_user(request)  # Проверка токена
+    users = load_users()
+
+    if username not in users:
+        raise HTTPException(status_code=400, detail="Пользователь не найден")
+
+    user_chats = users[username].get("chats", [])
+    
+    # Ищем этот чат
+    chat_obj = next((c for c in user_chats if c["id"] == chat_id), None)
+    if not chat_obj:
+        raise HTTPException(status_code=404, detail="Чат не найден или у вас нет доступа")
+
+    new_title = data.title.strip()
+    if not new_title:
+        raise HTTPException(status_code=400, detail="Название чата не может быть пустым")
+
+    # Обновляем
+    chat_obj["title"] = new_title
+    save_users(users)
+
+    # Если нужно обновить json-файл чата (data/<chat_id>.json) — это необязательно.
+    chat_file = get_chat_file(chat_id)
+    if os.path.exists(chat_file):
+        with open(chat_file, "r", encoding="utf-8") as f:
+            chat_data = json.load(f)
+        # Можно сохранить "title" и в файле
+        chat_data["title"] = new_title
+        with open(chat_file, "w", encoding="utf-8") as f:
+            json.dump(chat_data, f, ensure_ascii=False, indent=2)
+
+    return {"detail": "Чат успешно переименован", "chat_id": chat_id, "new_title": new_title}
